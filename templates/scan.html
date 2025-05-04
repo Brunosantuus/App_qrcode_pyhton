@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escanear QR Code - Sistema de Presença</title>
+    <link href="/static/css/output.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <script src="/static/js/qr-scanner.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-white min-h-screen flex flex-col items-center p-5">
+    <!-- Cabeçalho -->
+    <header class="w-full max-w-2xl flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Escanear QR Code</h2>
+        <a href="/logout"><button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200">Sair</button></a>
+    </header>
+
+    <!-- Card do Leitor de QR Code -->
+    <div class="bg-white rounded-xl shadow-lg p-6 max-w-2xl w-full space-y-4">
+        <!-- Leitor de QR Code -->
+        <div id="qr-reader" class="w-full max-w-[480px] h-[360px] border-2 border-gray-200 rounded-lg mx-auto"></div>
+
+        <!-- Botão de Iniciar/Parar Leitura -->
+        <div class="text-center">
+            <button id="start-stop-button" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200">Iniciar Leitura</button>
+        </div>
+
+        <!-- Mensagens de Feedback -->
+        <p id="message" class="text-center text-green-700 bg-green-100 border-l-4 border-green-500 p-3 rounded-lg hidden"></p>
+        <p id="error" class="text-center text-red-700 bg-red-100 border-l-4 border-red-500 p-3 rounded-lg hidden"></p>
+    </div>
+
+    <!-- Botão para Ver Presenças -->
+    <a href="/attendances" class="mt-6"><button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200">Ver Presenças</button></a>
+
+    <script>
+        // Inicializar o QR Scanner
+        const html5QrCode = new Html5Qrcode("qr-reader");
+        const messageElement = document.getElementById("message");
+        const errorElement = document.getElementById("error");
+        const startStopButton = document.getElementById("start-stop-button");
+        let isScanning = false;
+
+        const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+            fetch("/register_attendance", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ qr_data: decodedText })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    messageElement.textContent = data.message;
+                    messageElement.classList.remove("hidden");
+                    errorElement.classList.add("hidden");
+                    stopScanning();
+                    setTimeout(() => {
+                        messageElement.textContent = "";
+                        messageElement.classList.add("hidden");
+                        if (!isScanning) {
+                            startScanning();
+                        }
+                    }, 5000);
+                } else if (data.error) {
+                    errorElement.textContent = data.error;
+                    errorElement.classList.remove("hidden");
+                    messageElement.classList.add("hidden");
+                }
+            })
+            .catch(err => {
+                errorElement.textContent = "Erro ao registrar presença: " + err.message;
+                errorElement.classList.remove("hidden");
+                messageElement.classList.add("hidden");
+            });
+        };
+
+        const qrCodeErrorCallback = (error) => {
+            // Ignorar erros de leitura contínua
+        };
+
+        function startScanning() {
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                qrCodeSuccessCallback,
+                qrCodeErrorCallback
+            ).catch(err => {
+                errorElement.textContent = "Erro ao iniciar a câmera: " + err;
+                errorElement.classList.remove("hidden");
+            });
+            isScanning = true;
+            startStopButton.textContent = "Parar Leitura";
+        }
+
+        function stopScanning() {
+            html5QrCode.stop().catch(err => {
+                errorElement.textContent = "Erro ao parar a câmera: " + err;
+                errorElement.classList.remove("hidden");
+            });
+            isScanning = false;
+            startStopButton.textContent = "Iniciar Leitura";
+        }
+
+        // Iniciar a leitura automaticamente ao carregar a página
+        startScanning();
+
+        // Evento para o botão de iniciar/parar leitura
+        startStopButton.addEventListener("click", () => {
+            if (isScanning) {
+                stopScanning();
+            } else {
+                startScanning();
+            }
+        });
+
+        // Parar a leitura ao sair da página
+        window.addEventListener("beforeunload", () => {
+            html5QrCode.stop();
+        });
+
+        // Inicializar ícones Lucide
+        lucide.createIcons();
+    </script>
+</body>
+</html>
