@@ -7,7 +7,8 @@
     <link href="/static/css/output.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <script src="/static/js/qr-scanner.js"></script>
+    <!-- Carregar a biblioteca html5-qrcode diretamente -->
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-white min-h-screen flex flex-col items-center p-5">
     <!-- Cabeçalho -->
@@ -43,6 +44,7 @@
         let isScanning = false;
 
         const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+            console.log("QR Code lido com sucesso:", decodedText); // Depuração
             fetch("/register_attendance", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -58,9 +60,6 @@
                     setTimeout(() => {
                         messageElement.textContent = "";
                         messageElement.classList.add("hidden");
-                        if (!isScanning) {
-                            startScanning();
-                        }
                     }, 5000);
                 } else if (data.error) {
                     errorElement.textContent = data.error;
@@ -69,6 +68,7 @@
                 }
             })
             .catch(err => {
+                console.error("Erro ao registrar presença:", err); // Depuração
                 errorElement.textContent = "Erro ao registrar presença: " + err.message;
                 errorElement.classList.remove("hidden");
                 messageElement.classList.add("hidden");
@@ -77,24 +77,31 @@
 
         const qrCodeErrorCallback = (error) => {
             // Ignorar erros de leitura contínua
+            console.log("Erro de leitura contínua (ignorado):", error); // Depuração
         };
 
         function startScanning() {
+            console.log("Iniciando leitura de QR code..."); // Depuração
             html5QrCode.start(
                 { facingMode: "environment" },
                 { fps: 10, qrbox: { width: 250, height: 250 } },
                 qrCodeSuccessCallback,
                 qrCodeErrorCallback
             ).catch(err => {
+                console.error("Erro ao iniciar a câmera:", err); // Depuração
                 errorElement.textContent = "Erro ao iniciar a câmera: " + err;
                 errorElement.classList.remove("hidden");
+                isScanning = false;
+                startStopButton.textContent = "Iniciar Leitura";
             });
             isScanning = true;
             startStopButton.textContent = "Parar Leitura";
         }
 
         function stopScanning() {
+            console.log("Parando leitura de QR code..."); // Depuração
             html5QrCode.stop().catch(err => {
+                console.error("Erro ao parar a câmera:", err); // Depuração
                 errorElement.textContent = "Erro ao parar a câmera: " + err;
                 errorElement.classList.remove("hidden");
             });
@@ -102,11 +109,9 @@
             startStopButton.textContent = "Iniciar Leitura";
         }
 
-        // Iniciar a leitura automaticamente ao carregar a página
-        startScanning();
-
         // Evento para o botão de iniciar/parar leitura
         startStopButton.addEventListener("click", () => {
+            console.log("Botão clicado, isScanning:", isScanning); // Depuração
             if (isScanning) {
                 stopScanning();
             } else {

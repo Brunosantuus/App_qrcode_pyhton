@@ -103,12 +103,27 @@ def view_attendances():
     if "user" not in session:
         print("Usuário não autenticado, redirecionando para login")  # Depuração
         return redirect(url_for("login"))
-    with open(ATTENDANCES_FILE, "r") as f:
-        content = f.read().strip()
-        if not content:
-            attendances = []
-        else:
-            attendances = json.loads(content)
+    
+    try:
+        print(f"Tentando ler o arquivo {ATTENDANCES_FILE}")  # Depuração
+        with open(ATTENDANCES_FILE, "r") as f:
+            content = f.read().strip()
+            print(f"Conteúdo lido do arquivo: {content}")  # Depuração
+            if not content:
+                attendances = []
+            else:
+                attendances = json.loads(content)
+        print(f"Presenças carregadas: {attendances}")  # Depuração
+    except FileNotFoundError as e:
+        print(f"Erro: Arquivo {ATTENDANCES_FILE} não encontrado: {str(e)}")  # Depuração
+        attendances = []  # Retorna lista vazia se o arquivo não existir
+    except json.JSONDecodeError as e:
+        print(f"Erro: Falha ao decodificar o JSON em {ATTENDANCES_FILE}: {str(e)}")  # Depuração
+        attendances = []  # Retorna lista vazia se o JSON for inválido
+    except Exception as e:
+        print(f"Erro inesperado ao ler {ATTENDANCES_FILE}: {str(e)}")  # Depuração
+        return jsonify({"error": f"Erro ao carregar presenças: {str(e)}"}), 500
+
     print("Renderizando attendances.html")  # Depuração
     return render_template("attendances.html", attendances=attendances)
 
