@@ -74,7 +74,16 @@
         // Inicializar ícones Lucide
         lucide.createIcons();
 
-        // Registrar o Service Worker para PWA
+        // Formatar o CPF ao enviar o formulário
+        document.getElementById("login-form").addEventListener("submit", function(event) {
+    let cpfInput = document.getElementById("cpf");
+    let cpf = cpfInput.value;
+    cpf = cpf.replace(/[^\d]/g, '');
+    cpfInput.value = cpf;
+});
+
+        // Comentar o registro do Service Worker para testes
+        /*
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js')
@@ -86,6 +95,7 @@
                     });
             });
         }
+        */
     </script>
 </body>
 </html>
