@@ -7,8 +7,8 @@ app = Flask(__name__)
 app.secret_key = "sua_chave_secreta_aqui"  # Substitua por uma chave segura
 
 # Configuração do cliente Supabase usando URL e chave API
-SUPABASE_URL = "https://dqtmjcwgzceqfolkbwfk.supabase.co"  # Substitua pela URL do seu projeto
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdG1qY3dnemNlcWZvbGtid2ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5ODE3MzQsImV4cCI6MjA2MjU1NzczNH0.DTU9dtF39w7igQV2EENZNqKfBNtt50-u6C_hVC9ppt8"  # Substitua pela sua chave API (anon)
+SUPABASE_URL = "https://dqtmjcwgzceqfolkbwfk.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdG1qY3dnemNlcWZvbGtid2ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5ODE3MzQsImV4cCI6MjA2MjU1NzczNH0.DTU9dtF39w7igQV2EENZNqKfBNtt50-u6C_hVC9ppt8"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Rota para a página de login
@@ -71,15 +71,15 @@ def scan():
         query = supabase.table("turmas").select("""
             id, nome, 
             disciplinas (nome as disciplina, tipo), 
-            polos (nome as polo), 
-            unidades (nome as unidade)
+            polos (nome as polo)
         """)
 
         if user["cargo"] in ["diretor", "monitor"]:
-            response = supabase.table("usuarios").select("unidade_id").eq("cpf", user["cpf"]).execute()
-            unidade_id = response.data[0]["unidade_id"] if response.data else None
-            if unidade_id:
-                query = query.eq("unidade_id", unidade_id)
+            # No projeto principal, unidade é um campo de texto, não uma chave estrangeira
+            response = supabase.table("usuarios").select("unidade").eq("cpf", user["cpf"]).execute()
+            unidade = response.data[0]["unidade"] if response.data else None
+            if unidade:
+                query = query.eq("unidade", unidade)
         elif user["cargo"] == "coordenador":
             response = supabase.table("usuarios").select("polo_id").eq("cpf", user["cpf"]).execute()
             polo_id = response.data[0]["polo_id"] if response.data else None
@@ -95,7 +95,7 @@ def scan():
                 "disciplina": turma["disciplinas"]["disciplina"],
                 "tipo": turma["disciplinas"]["tipo"],
                 "polo": turma["polos"]["polo"],
-                "unidade": turma["unidades"]["unidade"]
+                "unidade": turma.get("unidade")  # Campo de texto
             })
     except Exception as e:
         print(f"Erro ao buscar turmas: {str(e)}")
@@ -112,35 +112,40 @@ def register_attendance():
         return jsonify({"error": "Não autenticado"}), 401
 
     data = request.json
-    qr_data = data.get("qr_data")
+    qr_data = data.get("qr_data")  # Agora qr_data é apenas o id (UUID como string)
     turma_id = data.get("turma_id")
     print(f"Recebido QR code: {qr_data}, Turma ID: {turma_id}")  # Depuração
 
     try:
-        student_data = json.loads(qr_data)
-        student_id = student_data.get("id")
-        student_name = student_data.get("name")
+        # O qr_data agora é apenas o id do aluno (UUID)
+        student_id = qr_data
 
-        if not student_id or not student_name or not turma_id:
+        if not student_id or not turma_id:
             print("Dados incompletos no QR code ou turma não selecionada")  # Depuração
             return jsonify({"error": "Dados incompletos no QR code ou turma não selecionada"}), 400
 
-        # Verificar se o aluno existe e está matriculado na turma
-        response = supabase.table("alunos").select("*, matriculas!inner(id as matricula_id)").eq("id", student_id).eq("matriculas.turma_id", turma_id).execute()
+        # Verificar se o aluno existe
+        response = supabase.table("alunos").select("*").eq("id", student_id).execute()
         student = response.data[0] if response.data else None
 
         if not student:
             print("Aluno não encontrado")  # Depuração
             return jsonify({"error": "Aluno não encontrado"}), 404
 
-        matricula_id = student.get("matriculas", [{}])[0].get("matricula_id")
+        # Extrair o nome do aluno do banco
+        student_name = student["nome"]
+
+        # Verificar se o aluno está matriculado na turma
+        response = supabase.table("matriculas").select("id").eq("aluno_id", student_id).eq("turma_id", turma_id).execute()
+        matricula_id = response.data[0]["id"] if response.data else None
+
         if not matricula_id:
             print("Aluno não está matriculado nesta turma")  # Depuração
             return jsonify({"error": "Aluno não está matriculado nesta turma"}), 403
 
         # Verificar se já há uma presença registrada para esta aula (mesmo dia)
         today = datetime.now().strftime("%Y-%m-%d")
-        response = supabase.table("presencas").select("*").eq("aluno_id", student_id).eq("turma_id", turma_id).gte("data_hora", f"{today}T00:00:00").lte("data_hora", f"{today}T23:59:59").execute()
+        response = supabase.table("presencas").select("*").eq("id_aluno", student_id).eq("turma_id", turma_id).eq("data_escaneamento", today).execute()
         existing_presence = response.data[0] if response.data else None
 
         if existing_presence:
@@ -148,11 +153,19 @@ def register_attendance():
             return jsonify({"error": "Presença já registrada para esta aula hoje"}), 400
 
         # Registrar a presença
-        timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        timestamp = datetime.now()
         response = supabase.table("presencas").insert({
-            "aluno_id": student_id,
+            "id_aluno": student_id,
+            "matricula": student["matricula"],
+            "nome_aluno": student_name,
+            "unidade": student["unidade"],
+            "etapa": student["etapa"],
             "turma_id": turma_id,
-            "data_hora": timestamp
+            "turno_escola_viva": student["turno"],
+            "timestamp": timestamp.isoformat(),
+            "presenca": "presente",  # Ajuste conforme necessário
+            "data_escaneamento": timestamp.strftime("%Y-%m-%d"),
+            "hora_escaneamento": timestamp.strftime("%H:%M:%S")
         }).execute()
 
         print(f"Presença registrada: {student_name} (ID: {student_id}) às {timestamp}")  # Depuração
@@ -174,32 +187,32 @@ def view_attendances():
         query = supabase.table("presencas").select("""
             *, 
             alunos (nome as student_name, matricula), 
-            turmas (nome as turma_nome, disciplinas (nome as disciplina, tipo as disciplina_tipo), polos (id as polo_id), unidades (id as unidade_id))
+            turmas (nome as turma_nome, disciplinas (nome as disciplina, tipo as disciplina_tipo), polos (id as polo_id))
         """)
 
         if user["cargo"] in ["diretor", "monitor"]:
-            response = supabase.table("usuarios").select("unidade_id").eq("cpf", user["cpf"]).execute()
-            unidade_id = response.data[0]["unidade_id"] if response.data else None
-            if unidade_id:
-                query = query.eq("turmas.unidade_id", unidade_id)
+            response = supabase.table("usuarios").select("unidade").eq("cpf", user["cpf"]).execute()
+            unidade = response.data[0]["unidade"] if response.data else None
+            if unidade:
+                query = query.eq("unidade", unidade)
         elif user["cargo"] == "coordenador":
             response = supabase.table("usuarios").select("polo_id").eq("cpf", user["cpf"]).execute()
             polo_id = response.data[0]["polo_id"] if response.data else None
             if polo_id:
                 query = query.eq("turmas.polo_id", polo_id)
 
-        response = query.order("data_hora", desc=True).execute()
+        response = query.order("timestamp", desc=True).execute()
         attendances = []
         for row in response.data:
             attendances.append({
-                "student_id": row["aluno_id"],
+                "student_id": row["id_aluno"],
                 "student_name": row["alunos"]["student_name"],
                 "matricula": row["alunos"]["matricula"],
                 "turma_nome": row["turmas"]["turma_nome"],
                 "disciplina": row["turmas"]["disciplinas"]["disciplina"],
                 "disciplina_tipo": row["turmas"]["disciplinas"]["disciplina_tipo"],
-                "timestamp": datetime.fromisoformat(row["data_hora"]).strftime("%Y-%m-%d %H:%M:%S"),
-                "date": datetime.fromisoformat(row["data_hora"]).strftime("%Y-%m-%d")
+                "timestamp": datetime.fromisoformat(row["timestamp"]).strftime("%Y-%m-%d %H:%M:%S"),
+                "date": row["data_escaneamento"]
             })
     except Exception as e:
         print(f"Erro ao buscar presenças: {str(e)}")
@@ -226,4 +239,4 @@ def serve_service_worker():
     return send_from_directory("static", "service-worker.js")
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)
