@@ -1,34 +1,38 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Presenças Registradas</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-</head>
-<body class="bg-gray-100 min-h-screen p-5">
-    <h2 class="text-2xl font-bold text-center mb-5">Presenças Registradas</h2>
-    <table class="w-full border-collapse mt-5 bg-white shadow-md">
-        <thead>
-            <tr>
-                <th class="p-2 border bg-blue-600 text-white">ID do Aluno</th>
-                <th class="p-2 border bg-blue-600 text-white">Nome do Aluno</th>
-                <th class="p-2 border bg-blue-600 text-white">Data e Hora</th>
-                <th class="p-2 border bg-blue-600 text-white">Data</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for attendance in attendances %}
-            <tr class="{% cycle 'bg-gray-100' 'bg-white' %}">
-                <td class="p-2 border">{{ attendance.student_id }}</td>
-                <td class="p-2 border">{{ attendance.student_name }}</td>
-                <td class="p-2 border">{{ attendance.timestamp }}</td>
-                <td class="p-2 border">{{ attendance.date }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <a href="/scan" class="block mx-auto mt-5 text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Voltar</a>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Presenças{% endblock %}
+{% block header %}Presenças{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow p-4">
+    <h3 class="text-lg font-semibold mb-4">Lista de Presenças</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="p-2 text-left">Aluno</th>
+                    <th class="p-2 text-left">Matrícula</th>
+                    <th class="p-2 text-left">Turma</th>
+                    <th class="p-2 text-left">Disciplina</th>
+                    <th class="p-2 text-left">Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attendance in attendances %}
+                <tr class="border-b">
+                    <td class="p-2">{{ attendance.student_name }}</td>
+                    <td class="p-2">{{ attendance.matricula }}</td>
+                    <td class="p-2">{{ attendance.turma_nome }}</td>
+                    <td class="p-2">{{ attendance.disciplina }} ({{ attendance.disciplina_tipo }})</td>
+                    <td class="p-2">{{ attendance.date }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="p-2 text-center text-gray-500">Nenhuma presença registrada</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

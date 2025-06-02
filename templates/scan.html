@@ -1,230 +1,51 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escanear QR Code - Sistema de Presença</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.1.0/html5-qrcode.min.js"></script>
-</head>
-<body class="bg-gradient-to-br from-blue-50 via-white to-blue-100 min-h-screen flex flex-col items-center p-4">
-    <!-- Cabeçalho -->
-    <header class="w-full max-w-md flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold text-gray-800 drop-shadow-sm">Escanear QR Code</h2>
-        <a href="/logout">
-            <button class="bg-red-500 text-white px-4 py-2 rounded-full shadow-lg hover:bg-red-600 transition-all duration-300 flex items-center gap-2">
-                <i data-lucide="log-out" class="h-5 w-5"></i>
-                Sair
-            </button>
-        </a>
-    </header>
+{% extends 'base.html' %}
 
-    <!-- Card do Leitor de QR Code -->
-    <div class="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full space-y-4">
-        <!-- Seleção de Turma -->
-        <div>
-            <label for="turma" class="block text-sm font-medium text-gray-700 mb-2">Selecione a Turma:</label>
-            <select id="turma" class="block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
-                {% for turma in turmas %}
-                <option value="{{ turma.id }}">{{ turma.nome }} - {{ turma.disciplina }} ({{ turma.polo }})</option>
-                {% endfor %}
-            </select>
-        </div>
+{% block title %}Registrar Presença{% endblock %}
+{% block header %}Registrar Presença{% endblock %}
 
-        <!-- Leitor de QR Code -->
-        <div id="qr-reader" class="w-full max-w-[300px] h-[300px] border-4 border-blue-500 rounded-lg mx-auto shadow-inner"></div>
+{% block content %}
+<div class="bg-white rounded-lg shadow p-4">
+    <h3 class="text-lg font-semibold mb-4">Selecionar Turma</h3>
+    <select id="turma-select" class="w-full p-2 border rounded">
+        <option value="">Selecione uma turma</option>
+        {% for turma in turmas %}
+        <option value="{{ turma.id }}">{{ turma.nome }} ({{ turma.disciplina }} - {{ turma.polo }})</option>
+        {% endfor %}
+    </select>
+    <div id="qr-reader" class="mt-4"></div>
+    <p id="qr-message" class="mt-2 text-gray-500"></p>
+</div>
+{% endblock %}
 
-        <!-- Botão de Iniciar/Parar Leitura -->
-        <div class="text-center">
-            <button id="start-stop-button" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-full shadow-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-300">Iniciar Leitura</button>
-        </div>
+{% block scripts %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+    let html5QrcodeScanner = null;
+    document.getElementById('turma-select').addEventListener('change', (e) => {
+        const turmaId = e.target.value;
+        if (!turmaId) {
+            if (html5QrcodeScanner) html5QrcodeScanner.stop();
+            document.getElementById('qr-reader').innerHTML = '';
+            return;
+        }
 
-        <!-- Mensagens de Feedback -->
-        <p id="message" class="hidden text-center text-green-700 bg-green-100 border-l-4 border-green-500 p-3 rounded-lg flex items-center gap-2">
-            <i data-lucide="check-circle" class="h-5 w-5 text-green-500"></i>
-            <span></span>
-        </p>
-        <p id="error" class="hidden text-center text-red-700 bg-red-100 border-l-4 border-red-500 p-3 rounded-lg flex items-center gap-2">
-            <i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i>
-            <span></span>
-        </p>
-    </div>
-
-    <!-- Botão para Ver Presenças -->
-    <a href="/attendances" class="mt-6">
-        <button class="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-full shadow-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-all duration-300 flex items-center gap-2">
-            <i data-lucide="list" class="h-5 w-5"></i>
-            Ver Presenças
-        </button>
-    </a>
-
-    <script>
-        // Inicializar o QR Scanner
-        const html5QrCode = new Html5Qrcode("qr-reader");
-        const messageElement = document.getElementById("message");
-        const errorElement = document.getElementById("error");
-        const startStopButton = document.getElementById("start-stop-button");
-        const turmaSelect = document.getElementById("turma");
-        let isScanning = false;
-        let lastQrData = null;
-
-        // Verifica se o navegador suporta getUserMedia
-        console.log("Verificando suporte a getUserMedia...");
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            errorElement.querySelector("span").textContent = "Este navegador não suporta acesso à câmera.";
-            errorElement.classList.remove("hidden");
-            startStopButton.disabled = true;
-            console.error("navigator.mediaDevices ou getUserMedia não suportado.");
-        } else {
-            // Lista as câmeras disponíveis para depuração
-            console.log("Listando dispositivos de mídia...");
-            navigator.mediaDevices.enumerateDevices()
-                .then(devices => {
-                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                    console.log("Câmeras disponíveis:", videoDevices);
-                    if (videoDevices.length === 0) {
-                        errorElement.querySelector("span").textContent = "Nenhuma câmera encontrada no dispositivo.";
-                        errorElement.classList.remove("hidden");
-                        startStopButton.disabled = true;
-                    } else {
-                        console.log("Câmeras encontradas:", videoDevices);
-                        // Tenta obter o ID da câmera traseira ou padrão
-                        const cameraId = videoDevices[0].deviceId; // Usa a primeira câmera disponível
-                        console.log("ID da câmera selecionada:", cameraId);
-                        startStopButton.setAttribute("data-camera-id", cameraId);
-                    }
-                })
-                .catch(err => {
-                    console.error("Erro ao listar dispositivos:", err);
-                    errorElement.querySelector("span").textContent = "Erro ao listar câmeras: " + err.message;
-                    errorElement.classList.remove("hidden");
-                    startStopButton.disabled = true;
+        document.getElementById('qr-reader').innerHTML = '<div id="reader" class="w-full max-w-md"></div>';
+        html5QrcodeScanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: 250 });
+        html5QrcodeScanner.render(async (qrData) => {
+            try {
+                const response = await fetch('/register_attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qr_data: qrData, turma_id: turmaId })
                 });
-        }
-
-        // Função para iniciar o escaneamento
-        function startScanning() {
-            console.log("Botão 'Iniciar Leitura' clicado. Iniciando leitura de QR code..."); // Depuração
-
-            // Obtém o ID da câmera do atributo data-camera-id
-            const cameraId = startStopButton.getAttribute("data-camera-id");
-            if (!cameraId) {
-                console.error("Nenhum ID de câmera disponível.");
-                errorElement.querySelector("span").textContent = "Nenhuma câmera disponível para iniciar o escaneamento.";
-                errorElement.classList.remove("hidden");
-                return;
-            }
-
-            console.log("Tentando iniciar o escaneamento com cameraId:", cameraId);
-            html5QrCode.start(
-                cameraId, // Usa o ID da câmera obtido
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                qrCodeSuccessCallback,
-                qrCodeErrorCallback
-            ).catch(err => {
-                console.error("Erro ao iniciar a câmera:", err);
-                errorElement.querySelector("span").textContent = "Erro ao iniciar a câmera: " + err.message;
-                errorElement.classList.remove("hidden");
-                isScanning = false;
-                startStopButton.textContent = "Iniciar Leitura";
-            });
-            isScanning = true;
-            startStopButton.textContent = "Parar Leitura";
-        }
-
-        // Função para parar o escaneamento
-        function stopScanning() {
-            console.log("Parando leitura de QR code..."); // Depuração
-            html5QrCode.stop().catch(err => {
-                console.error("Erro ao parar a câmera:", err);
-                errorElement.querySelector("span").textContent = "Erro ao parar a câmera: " + err.message;
-                errorElement.classList.remove("hidden");
-            });
-            isScanning = false;
-            startStopButton.textContent = "Iniciar Leitura";
-        }
-
-        // Callback para quando o QR code é lido com sucesso
-        const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-            console.log("QR Code lido com sucesso:", decodedText); // Depuração
-            if (decodedText === lastQrData) {
-                console.log("QR code repetido, ignorando...");
-                return;
-            }
-            lastQrData = decodedText;
-
-            // Verifica se o texto escaneado é um UUID válido
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-            if (!uuidRegex.test(decodedText)) {
-                console.log("Formato de QR code inválido:", decodedText);
-                errorElement.querySelector("span").textContent = "QR Code inválido: formato incorreto.";
-                errorElement.classList.remove("hidden");
-                messageElement.classList.add("hidden");
-                return;
-            }
-
-            console.log("Enviando QR code para o servidor:", decodedText);
-            fetch("/register_attendance", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    qr_data: decodedText,
-                    turma_id: turmaSelect.value
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Resposta do servidor:", data);
-                if (data.message) {
-                    messageElement.querySelector("span").textContent = data.message;
-                    messageElement.classList.remove("hidden");
-                    errorElement.classList.add("hidden");
-                    stopScanning();
-                    setTimeout(() => {
-                        messageElement.textContent = "";
-                        messageElement.classList.add("hidden");
-                        lastQrData = null;  // Reseta para permitir nova leitura
-                    }, 5000);
-                } else if (data.error) {
-                    errorElement.querySelector("span").textContent = data.error;
-                    errorElement.classList.remove("hidden");
-                    messageElement.classList.add("hidden");
-                }
-            })
-            .catch(err => {
-                console.error("Erro ao registrar presença:", err);
-                errorElement.querySelector("span").textContent = "Erro ao registrar presença: " + err.message;
-                errorElement.classList.remove("hidden");
-                messageElement.classList.add("hidden");
-            });
-        };
-
-        // Callback para erros de leitura
-        const qrCodeErrorCallback = (error) => {
-            // Ignorar erros de leitura contínua
-            console.log("Erro de leitura contínua (ignorado):", error); // Depuração
-        };
-
-        // Evento para o botão de iniciar/parar leitura
-        startStopButton.addEventListener("click", () => {
-            console.log("Botão clicado, isScanning:", isScanning); // Depuração
-            if (isScanning) {
-                stopScanning();
-            } else {
-                startScanning();
+                const data = await response.json();
+                document.getElementById('qr-message').textContent = data.message || data.error;
+                document.getElementById('qr-message').className = response.ok ? 'text-green-500' : 'text-red-500';
+            } catch (error) {
+                document.getElementById('qr-message').textContent = 'Erro ao registrar presença';
+                document.getElementById('qr-message').className = 'text-red-500';
             }
         });
-
-        // Parar a leitura ao sair da página
-        window.addEventListener("beforeunload", () => {
-            console.log("Saindo da página, parando o escaneamento...");
-            html5QrCode.stop();
-        });
-
-        // Inicializar ícones Lucide
-        lucide.createIcons();
-    </script>
-</body>
-</html>
+    });
+</script>
+{% endblock %}

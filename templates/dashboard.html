@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-lg font-semibold">Visão Geral do + Educação</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-lg shadow p-4 hover:shadow-lg transition-shadow">
+        <div class="flex items-center mb-2">
+            <i data-lucide="users" class="h-6 w-6 text-blue-600 mr-2"></i>
+            <h3 class="text-sm font-medium text-gray-500">
+                {% if user.cargo in ['admin', 'secretario'] %}
+                    Total de Alunos
+                {% else %}
+                    Alunos no {{ user.polo_nome }}
+                {% endif %}
+            </h3>
+        </div>
+        <p id="total-students" class="text-2xl font-bold">Carregando...</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 hover:shadow-lg transition-shadow">
+        <div class="flex items-center mb-2">
+            <i data-lucide="school" class="h-6 w-6 text-teal-600 mr-2"></i>
+            <h3 class="text-sm font-medium text-gray-500">Turmas Ativas (<span id="current-period">Carregando...</span>)</h3>
+        </div>
+        <p id="total-classes" class="text-2xl font-bold">Carregando...</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 hover:shadow-lg transition-shadow">
+        <div class="flex items-center mb-2">
+            <i data-lucide="calendar-check" class="h-6 w-6 text-green-600 mr-2"></i>
+            <h3 class="text-sm font-medium text-gray-500">Presenças Hoje</h3>
+        </div>
+        <p id="presences-today" class="text-2xl font-bold">Carregando...</p>
+    </div>
+</div>
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Presenças Recentes</h3>
+    <div id="presences-list" class="space-y-2">
+        <p class="text-gray-500">Carregando...</p>
+    </div>
+</div>
+<div class="bg-white rounded-lg shadow p-4">
+    <h3 class="text-lg font-semibold mb-4">Presenças por Dia (Última Semana)</h3>
+    <canvas id="presences-chart" height="100"></canvas>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/api/dashboard_data', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                credentials: 'include'
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Erro ao carregar dados');
+            }
+            const data = await response.json();
+
+            // Atualizar elementos do dashboard
+            document.getElementById('total-students').textContent = data.total_alunos;
+            document.getElementById('total-classes').textContent = data.total_turmas;
+            document.getElementById('current-period').textContent = 
+                data.current_period === 'manha' ? 'Manhã' : 'Tarde';
+
+            // Calcular presenças de hoje
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('presences-today').textContent = 
+                data.presencas.filter(p => p.data === today).length;
+
+            // Atualizar lista de presenças recentes
+            const presencesList = document.getElementById('presences-list');
+            presencesList.innerHTML = data.presencas.length > 0
+                ? data.presencas.map(p => `
+                    <div class="flex justify-between text-sm">
+                        <span>${p.nome_aluno} (${p.turma_nome})</span>
+                        <span>${p.data}</span>
+                    </div>
+                `).join('')
+                : '<p class="text-gray-500">Nenhuma presença registrada</p>';
+
+            // Criar gráfico de presenças por dia
+            const labels = [];
+            const counts = [];
+            const currentDate = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(currentDate);
+                date.setDate(currentDate.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                labels.push(dateStr);
+                counts.push(data.presencas_por_dia[dateStr] || 0);
+            }
+
+            new Chart(document.getElementById('presences-chart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Presenças',
+                        data: counts,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Erro ao carregar dashboard:', error);
+            document.getElementById('presences-list').innerHTML = `<p class="text-red-500">${error.message}</p>`;
+            document.getElementById('total-students').textContent = 'Erro';
+            document.getElementById('total-classes').textContent = 'Erro';
+            document.getElementById('presences-today').textContent = 'Erro';
+            document.getElementById('current-period').textContent = 'Erro';
+        }
+    });
+</script>
+{% endblock %}
