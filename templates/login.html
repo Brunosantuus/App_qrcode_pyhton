@@ -60,11 +60,138 @@
                     <i id="loading-spinner" data-lucide="loader" class="hidden h-5 w-5 text-white"></i>
                 </button>
             </div>
+
+            <!-- Botão Cadastrar -->
+            <div>
+                <button type="button" id="register-button" class="w-full bg-gray-100 text-gray-700 px-4 py-3 rounded-lg shadow-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-300 text-lg font-semibold flex items-center justify-center space-x-2">
+                    <span>Cadastrar</span>
+                    <i data-lucide="user-plus" class="h-5 w-5 text-gray-700"></i>
+                </button>
+            </div>
         </form>
 
-        <!-- Link "Esqueci minha senha" (apenas visual) -->
+        <!-- Link "Esqueci minha senha" -->
         <div class="text-center">
-            <a href="#" class="text-xs text-gray-500 underline pointer-events-none cursor-not-allowed">Esqueci minha senha</a>
+            <a href="#" id="forgot-password-link" class="text-xs text-gray-500 underline hover:text-gray-600">Esqueci minha senha</a>
+        </div>
+    </div>
+
+    <!-- Modal de Cadastro -->
+    <div id="register-modal" class="modal hidden" role="dialog" aria-labelledby="register-modal-title" aria-modal="true">
+        <div class="modal-backdrop fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="modal-panel relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mx-auto flex size-12 shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:size-10">
+                                <i data-lucide="user-plus" class="h-6 w-6 text-blue-600"></i>
+                            </div>
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                                <h3 class="text-base font-semibold text-gray-900" id="register-modal-title">Criar Conta</h3>
+                                <div class="mt-2">
+                                    <p class="text-sm text-gray-500">Preencha os campos abaixo para se cadastrar.</p>
+                                </div>
+                                <div class="mt-4 space-y-4">
+                                    <!-- Campo CPF -->
+                                    <div>
+                                        <label for="register-cpf" class="block text-sm font-medium text-gray-700">CPF</label>
+                                        <input type="text" id="register-cpf" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Digite seu CPF" maxlength="14">
+                                    </div>
+                                    <!-- Campo Nome -->
+                                    <div>
+                                        <label for="register-name" class="block text-sm font-medium text-gray-700">Nome</label>
+                                        <input type="text" id="register-name" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Digite seu nome completo">
+                                    </div>
+                                    <!-- Campo Email -->
+                                    <div>
+                                        <label for="register-email" class="block text-sm font-medium text-gray-700">E-mail</label>
+                                        <input type="email" id="register-email" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Digite seu e-mail">
+                                    </div>
+                                    <!-- Campo Polo -->
+                                    <div>
+                                        <label for="register-polo" class="block text-sm font-medium text-gray-700">Polo</label>
+                                        <select id="register-polo" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="">Selecione um polo</option>
+                                        </select>
+                                    </div>
+                                    <!-- Campo Senha -->
+                                    <div>
+                                        <label for="register-password" class="block text-sm font-medium text-gray-700">Senha</label>
+                                        <input type="password" id="register-password" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Digite sua senha">
+                                    </div>
+                                    <!-- Campo Confirmar Senha -->
+                                    <div>
+                                        <label for="register-confirm-password" class="block text-sm font-medium text-gray-700">Confirmar Senha</label>
+                                        <input type="password" id="register-confirm-password" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Confirme sua senha">
+                                    </div>
+                                    <!-- Contêiner para Mensagens de Erro -->
+                                    <div id="register-error-message" class="space-y-4"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                        <button type="button" id="register-submit-btn" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-700 sm:ml-3 sm:w-auto">
+                            Cadastrar
+                        </button>
+                        <button type="button" id="register-cancel-btn" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 sm:mt-0 sm:w-auto">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Recuperação de Senha -->
+    <div id="forgot-password-modal" class="modal hidden" role="dialog" aria-labelledby="forgot-password-modal-title" aria-modal="true">
+        <div class="modal-backdrop fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="modal-panel relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mx-auto flex size-12 shrink-0 items-center justify-center rounded-full bg-yellow-100 sm:mx-0 sm:size-10">
+                                <i data-lucide="lock" class="h-6 w-6 text-yellow-600"></i>
+                            </div>
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                                <h3 class="text-base font-semibold text-gray-900" id="forgot-password-modal-title">Recuperar Senha</h3>
+                                <div class="mt-2">
+                                    <p class="text-sm text-gray-500">Digite seu CPF e uma nova senha para redefinir sua senha.</p>
+                                </div>
+                                <div class="mt-4 space-y-4">
+                                    <!-- Campo CPF -->
+                                    <div>
+                                        <label for="forgot-cpf" class="block text-sm font-medium text-gray-700">CPF</label>
+                                        <input type="text" id="forgot-cpf" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Digite seu CPF" maxlength="14">
+                                    </div>
+                                    <!-- Campo Nova Senha -->
+                                    <div>
+                                        <label for="new-password" class="block text-sm font-medium text-gray-700">Nova Senha</label>
+                                        <input type="password" id="new-password" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Digite sua nova senha">
+                                    </div>
+                                    <!-- Campo Confirmar Nova Senha -->
+                                    <div>
+                                        <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirmar Nova Senha</label>
+                                        <input type="password" id="confirm-password" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Confirme sua nova senha">
+                                    </div>
+                                    <!-- Contêiner para Mensagens de Erro -->
+                                    <div id="forgot-error-message" class="space-y-4"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                        <button type="button" id="forgot-password-submit-btn" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-700 sm:ml-3 sm:w-auto">
+                            Redefinir Senha
+                        </button>
+                        <button type="button" id="forgot-password-cancel-btn" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 sm:mt-0 sm:w-auto">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -94,7 +221,7 @@
             return value.replace(/\D/g, '');
         }
 
-        // Manipulação do campo CPF
+        // Manipulação do campo CPF (login)
         const cpfInput = document.getElementById('cpf');
         cpfInput.addEventListener('input', (e) => {
             const cursorPosition = e.target.selectionStart;
@@ -113,14 +240,90 @@
             e.target.setSelectionRange(cursorPosition + addedChars, cursorPosition + addedChars);
         });
 
-        // Manipular colar (paste) para aceitar apenas números
-        cpfInput.addEventListener('paste', (e) => {
-            e.preventDefault();
-            const pastedData = (e.clipboardData || window.clipboardData).getData('text');
-            const cleanedData = cleanCPF(pastedData);
-            const limitedData = cleanedData.slice(0, 11);
-            cpfInput.value = formatCPF(limitedData);
+        // Manipulação do campo CPF (cadastro)
+        const registerCpfInput = document.getElementById('register-cpf');
+        registerCpfInput.addEventListener('input', (e) => {
+            const cursorPosition = e.target.selectionStart;
+            const oldValue = e.target.value;
+            const cleanedValue = cleanCPF(oldValue);
+
+            if (cleanedValue.length > 11) {
+                e.target.value = formatCPF(cleanedValue.slice(0, 11));
+                return;
+            }
+
+            e.target.value = formatCPF(cleanedValue);
+
+            const newValue = e.target.value;
+            const addedChars = newValue.length - oldValue.length;
+            e.target.setSelectionRange(cursorPosition + addedChars, cursorPosition + addedChars);
         });
+
+        // Manipulação do campo CPF (recuperação de senha)
+        const forgotCpfInput = document.getElementById('forgot-cpf');
+        forgotCpfInput.addEventListener('input', (e) => {
+            const cursorPosition = e.target.selectionStart;
+            const oldValue = e.target.value;
+            const cleanedValue = cleanCPF(oldValue);
+
+            if (cleanedValue.length > 11) {
+                e.target.value = formatCPF(cleanedValue.slice(0, 11));
+                return;
+            }
+
+            e.target.value = formatCPF(cleanedValue);
+
+            const newValue = e.target.value;
+            const addedChars = newValue.length - oldValue.length;
+            e.target.setSelectionRange(cursorPosition + addedChars, cursorPosition + addedChars);
+        });
+
+        // Manipular colar (paste) para aceitar apenas números
+        [cpfInput, registerCpfInput, forgotCpfInput].forEach(input => {
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+                const cleanedData = cleanCPF(pastedData);
+                const limitedData = cleanedData.slice(0, 11);
+                input.value = formatCPF(limitedData);
+            });
+        });
+
+        // Função para buscar polos
+        async function fetchPolos() {
+            try {
+                const response = await fetch('/api/polos', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                const polos = await response.json();
+                const poloSelect = document.getElementById('register-polo');
+                poloSelect.innerHTML = '<option value="">Selecione um polo</option>';
+                if (response.ok) {
+                    polos.forEach(polo => {
+                        const option = document.createElement('option');
+                        option.value = polo.id;
+                        option.textContent = polo.nome;
+                        poloSelect.appendChild(option);
+                    });
+                } else {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                    errorDiv.setAttribute('role', 'alert');
+                    errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Erro ao carregar polos.</p>';
+                    document.getElementById('register-error-message').appendChild(errorDiv);
+                    lucide.createIcons();
+                }
+            } catch (error) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Erro ao carregar polos.</p>';
+                document.getElementById('register-error-message').appendChild(errorDiv);
+                lucide.createIcons();
+            }
+        }
 
         // Manipulação do formulário de login
         document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -167,6 +370,263 @@
                 loginButton.disabled = false;
                 buttonText.textContent = 'Entrar';
                 loadingSpinner.classList.add('hidden');
+            }
+        });
+
+        // Manipulação do Modal de Cadastro
+        function openRegisterModal() {
+            const modal = document.getElementById('register-modal');
+            modal.classList.remove('hidden');
+            document.getElementById('register-cpf').value = '';
+            document.getElementById('register-name').value = '';
+            document.getElementById('register-email').value = '';
+            document.getElementById('register-polo').value = '';
+            document.getElementById('register-password').value = '';
+            document.getElementById('register-confirm-password').value = '';
+            document.getElementById('register-error-message').innerHTML = '';
+            fetchPolos();
+            lucide.createIcons();
+        }
+
+        function closeRegisterModal() {
+            const modal = document.getElementById('register-modal');
+            const backdrop = modal.querySelector('.modal-backdrop');
+            const panel = modal.querySelector('.modal-panel');
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('scale-95');
+            }, 200);
+        }
+
+        document.getElementById('register-button').addEventListener('click', openRegisterModal);
+        document.getElementById('register-cancel-btn').addEventListener('click', closeRegisterModal);
+
+        document.getElementById('register-submit-btn').addEventListener('click', async () => {
+            const cpf = cleanCPF(document.getElementById('register-cpf').value);
+            const name = document.getElementById('register-name').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const poloId = document.getElementById('register-polo').value;
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm-password').value;
+            const errorContainer = document.getElementById('register-error-message');
+
+            errorContainer.innerHTML = '';
+
+            // Validações client-side
+            if (!cpf || cpf.length !== 11) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Por favor, insira um CPF válido (11 dígitos).</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            if (!name || name.length < 2) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Por favor, insira um nome válido.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Por favor, insira um e-mail válido.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            if (!poloId) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Por favor, selecione um polo.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            if (!password || password.length < 6) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>A senha deve ter pelo menos 6 caracteres.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>As senhas não coincidem.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            const submitButton = document.getElementById('register-submit-btn');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Cadastrando...';
+
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cpf, name, email, poloId, password, confirmPassword }),
+                    credentials: 'include'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'bg-green-100 border-l-4 border-green-500 text-green-700 p-3 rounded-lg flex items-center gap-2';
+                    successDiv.setAttribute('role', 'alert');
+                    successDiv.innerHTML = '<i data-lucide="check-circle" class="h-5 w-5 text-green-500"></i><p>Cadastro realizado com sucesso!</p>';
+                    errorContainer.appendChild(successDiv);
+                    lucide.createIcons();
+                    setTimeout(closeRegisterModal, 2000);
+                } else {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                    errorDiv.setAttribute('role', 'alert');
+                    errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>' + (data.error || 'Erro ao realizar cadastro.') + '</p>';
+                    errorContainer.appendChild(errorDiv);
+                    lucide.createIcons();
+                }
+            } catch (error) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Erro ao realizar cadastro. Tente novamente.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Cadastrar';
+            }
+        });
+
+        // Manipulação do Modal de Recuperação de Senha
+        function openForgotPasswordModal() {
+            const modal = document.getElementById('forgot-password-modal');
+            modal.classList.remove('hidden');
+            document.getElementById('forgot-cpf').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            document.getElementById('forgot-error-message').innerHTML = '';
+            lucide.createIcons();
+        }
+
+        function closeForgotPasswordModal() {
+            const modal = document.getElementById('forgot-password-modal');
+            const backdrop = modal.querySelector('.modal-backdrop');
+            const panel = modal.querySelector('.modal-panel');
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('scale-95');
+            }, 200);
+        }
+
+        document.getElementById('forgot-password-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            openForgotPasswordModal();
+        });
+
+        document.getElementById('forgot-password-cancel-btn').addEventListener('click', closeForgotPasswordModal);
+
+        document.getElementById('forgot-password-submit-btn').addEventListener('click', async () => {
+            const cpf = cleanCPF(document.getElementById('forgot-cpf').value);
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const errorContainer = document.getElementById('forgot-error-message');
+
+            errorContainer.innerHTML = '';
+
+            // Validações client-side
+            if (!cpf || cpf.length !== 11) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Por favor, insira um CPF válido (11 dígitos).</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            if (!newPassword || newPassword.length < 6) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>A nova senha deve ter pelo menos 6 caracteres.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>As senhas não coincidem.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+                return;
+            }
+
+            const submitButton = document.getElementById('forgot-password-submit-btn');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Redefinindo...';
+
+            try {
+                const response = await fetch('/forgot_password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cpf, newPassword, confirmPassword }),
+                    credentials: 'include'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'bg-green-100 border-l-4 border-green-500 text-green-700 p-3 rounded-lg flex items-center gap-2';
+                    successDiv.setAttribute('role', 'alert');
+                    successDiv.innerHTML = '<i data-lucide="check-circle" class="h-5 w-5 text-green-500"></i><p>Senha redefinida com sucesso!</p>';
+                    errorContainer.appendChild(successDiv);
+                    lucide.createIcons();
+                    setTimeout(closeForgotPasswordModal, 2000);
+                } else {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                    errorDiv.setAttribute('role', 'alert');
+                    errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>' + (data.error || 'Erro ao redefinir senha.') + '</p>';
+                    errorContainer.appendChild(errorDiv);
+                    lucide.createIcons();
+                }
+            } catch (error) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg flex items-center gap-2';
+                errorDiv.setAttribute('role', 'alert');
+                errorDiv.innerHTML = '<i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i><p>Erro ao redefinir senha. Tente novamente.</p>';
+                errorContainer.appendChild(errorDiv);
+                lucide.createIcons();
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Redefinir Senha';
             }
         });
     </script>

@@ -6,6 +6,7 @@ import json
 import logging
 import traceback
 from collections import Counter
+from bcrypt import hashpw, gensalt, checkpw
 
 app = Flask(__name__)
 app.secret_key = "sua_chave_secreta_aqui"  # Substitua por uma chave segura
@@ -40,28 +41,47 @@ def login():
         logger.info(f"Tentativa de login com CPF: {cpf}")
 
         try:
-            # Buscar funcionário com join para obter polo_nome
             response = supabase.table("funcionarios").select("*, polos!funcionarios_polo_id_fkey(nome)").eq("cpf", cpf).execute()
             logger.debug(f"Resposta do Supabase: {response.data}")
             user = response.data[0] if response.data else None
 
-            if user and user["senha"] == password:
-                session["user"] = {
-                    "id": user["id"],
-                    "cpf": cpf,
-                    "name": user["nome"],
-                    "cargo": user["cargo"],
-                    "polo_id": user.get("polo_id"),
-                    "unidade": user.get("unidade"),
-                    "polo_nome": user["polos"]["nome"] if user.get("polos") else "Desconhecido"
-                }
-                logger.info(f"Login bem-sucedido: {user['nome']}, redirecionando para /dashboard")
-                return jsonify({"message": "Login bem-sucedido", "redirect": url_for("dashboard")})
-            else:
-                logger.warning("Credenciais inválidas")
-                if request.json:
-                    return jsonify({"error": "Credenciais inválidas. Tente novamente."}), 401
-                return render_template("login.html", error="Credenciais inválidas. Tente novamente.")
+            if user:
+                # Tentar verificar senha hasheada
+                try:
+                    if checkpw(password.encode('utf-8'), user["senha"].encode('utf-8')):
+                        session["user"] = {
+                            "id": user["id"],
+                            "cpf": cpf,
+                            "name": user["nome"],
+                            "cargo": user["cargo"],
+                            "polo_id": user.get("polo_id"),
+                            "unidade": user.get("unidade"),
+                            "polo_nome": user["polos"]["nome"] if user.get("polos") else "Desconhecido"
+                        }
+                        logger.info(f"Login bem-sucedido: {user['nome']}, redirecionando para /scan")
+                        return jsonify({"message": "Login bem-sucedido", "redirect": url_for("scan")})
+                except ValueError:
+                    # Se a senha não for um hash válido, tentar comparação direta
+                    if user["senha"] == password:
+                        # Opcional: Atualizar para senha hasheada
+                        hashed_password = hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')
+                        supabase.table("funcionarios").update({"senha": hashed_password}).eq("cpf", cpf).execute()
+                        session["user"] = {
+                            "id": user["id"],
+                            "cpf": cpf,
+                            "name": user["nome"],
+                            "cargo": user["cargo"],
+                            "polo_id": user.get("polo_id"),
+                            "unidade": user.get("unidade"),
+                            "polo_nome": user["polos"]["nome"] if user.get("polos") else "Desconhecido"
+                        }
+                        logger.info(f"Login bem-sucedido: {user['nome']}, redirecionando para /scan")
+                        return jsonify({"message": "Login bem-sucedido", "redirect": url_for("scan")})
+
+            logger.warning("Credenciais inválidas")
+            if request.json:
+                return jsonify({"error": "Credenciais inválidas. Tente novamente."}), 401
+            return render_template("login.html", error="Credenciais inválidas. Tente novamente.")
         except Exception as e:
             error_msg = f"Erro ao conectar ao banco de dados: {str(e)}"
             logger.error(error_msg)
@@ -89,11 +109,11 @@ def get_dashboard_data():
     user = session["user"]
     try:
         sao_paulo_tz = pytz.timezone('America/Sao_Paulo')
-        current_time = datetime.now(sao_paulo_tz)  # 2025-06-02 12:54 PM -03
+        current_time = datetime.now(sao_paulo_tz)
         current_hour = current_time.hour
-        current_period = 'manha' if 6 <= current_hour <= 12 else 'tarde'  # Será 'tarde'
+        current_period = 'manha' if 6 <= current_hour <= 12 else 'tarde'
         weekday_map = {0: 'seg', 1: 'ter', 2: 'qua', 3: 'qui', 4: 'sex', 5: 'sab', 6: 'dom'}
-        current_weekday = weekday_map[current_time.weekday()]  # 'seg' (segunda-feira)
+        current_weekday = weekday_map[current_time.weekday()]
 
         # Total de alunos
         query_alunos = supabase.table("alunos").select("id", count="exact")
@@ -125,11 +145,16 @@ def get_dashboard_data():
 
         # Presenças recentes (últimas 5)
         query_presencas = supabase.table("presenca").select(
-            "id, nome_aluno, data_escaneamento, turmas!presenca_turma_id_fkey(nome, polo_id)"
+            "id, nome_aluno, data_escaneamento, turmas!presenca_turma_id_fkey(nome)"
         )
         query_presencas = query_presencas.order("data_escaneamento", desc=True).limit(5)
         if user["cargo"] not in ["admin", "secretario"]:
-            query_presencas = query_presencas.eq("turmas.polo_id", user["polo_id"])
+            turmas_polo = supabase.table("turmas").select("id").eq("polo_id", user["polo_id"]).execute()
+            turmas_ids = [turma["id"] for turma in turmas_polo.data]
+            if turmas_ids:
+                query_presencas = query_presencas.in_("turma_id", turmas_ids)
+            else:
+                query_presencas = query_presencas.eq("turma_id", None)  # Evita erro se não houver turmas
         response_presencas = query_presencas.execute()
         presencas = [
             {
@@ -143,9 +168,14 @@ def get_dashboard_data():
 
         # Presenças por dia (última semana)
         one_week_ago = (current_time - timedelta(days=7)).strftime("%Y-%m-%d")
-        query_presencas_dias = supabase.table("presenca").select("data_escaneamento")
+        query_presencas_dias = supabase.table("presenca").select("data_escaneamento, turma_id")
         if user["cargo"] not in ["admin", "secretario"]:
-            query_presencas_dias = query_presencas_dias.eq("turmas!presenca_turma_id_fkey.polo_id", user["polo_id"])
+            turmas_polo = supabase.table("turmas").select("id").eq("polo_id", user["polo_id"]).execute()
+            turmas_ids = [turma["id"] for turma in turmas_polo.data]
+            if turmas_ids:
+                query_presencas_dias = query_presencas_dias.in_("turma_id", turmas_ids)
+            else:
+                query_presencas_dias = query_presencas_dias.eq("turma_id", None)
         query_presencas_dias = query_presencas_dias.gte("data_escaneamento", one_week_ago)
         response_presencas_dias = query_presencas_dias.execute()
         presencas_por_dia = Counter(p["data_escaneamento"] for p in response_presencas_dias.data if p["data_escaneamento"])
@@ -156,13 +186,13 @@ def get_dashboard_data():
             "cognitive_classes": cognitive_classes,
             "motor_classes": motor_classes,
             "presencas": presencas,
-            "presencas_por_dia": dict(presencas_por_dia),  # Converter Counter para dict
+            "presencas_por_dia": dict(presencas_por_dia),
             "current_period": current_period
         })
     except Exception as e:
         logger.error(f"Erro ao buscar dados do dashboard: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
+    
 # Rota para a página de leitura de QR code
 @app.route("/scan", methods=["GET"])
 def scan():
@@ -309,6 +339,149 @@ def view_attendances():
 
     logger.info("Renderizando attendances.html")
     return render_template("attendances.html", attendances=attendances, user=user)
+
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.json or request.form
+    cpf = clean_cpf(data.get("cpf", ""))
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip()
+    polo_id = data.get("poloId", "").strip()
+    password = data.get("password", "")
+    confirm_password = data.get("confirmPassword", "")
+
+    logger.info(f"Tentativa de cadastro com CPF: {cpf}, E-mail: {email}, Polo ID: {polo_id}")
+
+    try:
+        # Validações
+        if not cpf or len(cpf) != 11:
+            logger.warning("CPF inválido")
+            return jsonify({"error": "CPF inválido. Deve conter 11 dígitos."}), 400
+
+        if not name or len(name) < 2:
+            logger.warning("Nome inválido")
+            return jsonify({"error": "Nome inválido. Deve conter pelo menos 2 caracteres."}), 400
+
+        if not email or not "@" in email or not "." in email:
+            logger.warning("E-mail inválido")
+            return jsonify({"error": "E-mail inválido."}), 400
+
+        if not polo_id:
+            logger.warning("Polo não selecionado")
+            return jsonify({"error": "Por favor, selecione um polo."}), 400
+
+        # Verificar se o polo existe
+        response_polo = supabase.table("polos").select("id").eq("id", polo_id).execute()
+        if not response_polo.data:
+            logger.warning("Polo inválido")
+            return jsonify({"error": "Polo selecionado é inválido."}), 400
+
+        if not password or len(password) < 6:
+            logger.warning("Senha inválida")
+            return jsonify({"error": "A senha deve ter pelo menos 6 caracteres."}), 400
+
+        if password != confirm_password:
+            logger.warning("Senhas não coincidem")
+            return jsonify({"error": "As senhas não coincidem."}), 400
+
+        # Verificar se CPF ou e-mail já existem
+        response_cpf = supabase.table("funcionarios").select("cpf").eq("cpf", cpf).execute()
+        if response_cpf.data:
+            logger.warning("CPF já registrado")
+            return jsonify({"error": "Este CPF já está registrado."}), 400
+
+        response_email = supabase.table("funcionarios").select("email").eq("email", email).execute()
+        if response_email.data:
+            logger.warning("E-mail já registrado")
+            return jsonify({"error": "Este e-mail já está registrado."}), 400
+
+        # Hash da senha
+        hashed_password = hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')
+
+        # Inserir novo usuário
+        new_user = {
+            "cpf": cpf,
+            "nome": name,
+            "email": email,
+            "senha": hashed_password,
+            "cargo": "monitor",
+            "polo_id": polo_id,
+            "unidade": None
+        }
+        response = supabase.table("funcionarios").insert(new_user).execute()
+
+        if response.data:
+            logger.info(f"Usuário cadastrado com sucesso: {name}")
+            return jsonify({"message": "Cadastro realizado com sucesso!"}), 200
+        else:
+            logger.error("Falha ao inserir usuário no Supabase")
+            return jsonify({"error": "Erro ao realizar cadastro. Tente novamente."}), 500
+
+    except Exception as e:
+        error_msg = f"Erro ao processar cadastro: {str(e)}"
+        logger.error(error_msg)
+        traceback.print_exc()
+        return jsonify({"error": error_msg}), 500
+
+@app.route("/forgot_password", methods=["POST"])
+def forgot_password():
+    data = request.json or request.form
+    cpf = clean_cpf(data.get("cpf", ""))
+    new_password = data.get("newPassword", "")
+    confirm_password = data.get("confirmPassword", "")
+
+    logger.info(f"Tentativa de redefinição de senha com CPF: {cpf}")
+
+    try:
+        # Validações
+        if not cpf or len(cpf) != 11:
+            logger.warning("CPF inválido")
+            return jsonify({"error": "CPF inválido. Deve conter 11 dígitos."}), 400
+
+        if not new_password or len(new_password) < 6:
+            logger.warning("Senha inválida")
+            return jsonify({"error": "A nova senha deve ter pelo menos 6 caracteres."}), 400
+
+        if new_password != confirm_password:
+            logger.warning("Senhas não coincidem")
+            return jsonify({"error": "As senhas não coincidem."}), 400
+
+        # Verificar se o CPF existe
+        response = supabase.table("funcionarios").select("cpf").eq("cpf", cpf).execute()
+        if not response.data:
+            logger.warning("CPF não encontrado")
+            return jsonify({"error": "CPF não encontrado."}), 404
+
+        # Hash da nova senha
+        hashed_password = hashpw(new_password.encode('utf-8'), gensalt()).decode('utf-8')
+
+        # Atualizar a senha no banco
+        response = supabase.table("funcionarios").update({"senha": hashed_password}).eq("cpf", cpf).execute()
+
+        if response.data:
+            logger.info(f"Senha redefinida com sucesso para CPF: {cpf}")
+            return jsonify({"message": "Senha redefinida com sucesso!"}), 200
+        else:
+            logger.error("Falha ao atualizar senha no Supabase")
+            return jsonify({"error": "Erro ao redefinir senha. Tente novamente."}), 500
+
+    except Exception as e:
+        error_msg = f"Erro ao processar redefinição de senha: {str(e)}"
+        logger.error(error_msg)
+        traceback.print_exc()
+        return jsonify({"error": error_msg}), 500
+
+@app.route("/api/polos", methods=["GET"])
+def get_polos():
+    try:
+        response = supabase.table("polos").select("id, nome").execute()
+        logger.info("Polos buscados com sucesso")
+        return jsonify(response.data), 200
+    except Exception as e:
+        error_msg = f"Erro ao buscar polos: {str(e)}"
+        logger.error(error_msg)
+        traceback.print_exc()
+        return jsonify({"error": error_msg}), 500
 
 # Rota para logout
 @app.route("/logout")
