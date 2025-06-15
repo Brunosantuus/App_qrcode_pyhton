@@ -21,30 +21,89 @@
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script>
     let html5QrcodeScanner = null;
+    let isProcessing = false; // Flag para bloquear novas leituras
+
+    // Função para limpar mensagem após um tempo
+    function clearMessageAfterDelay(messageElement, delay) {
+        setTimeout(() => {
+            messageElement.textContent = '';
+            messageElement.className = 'mt-2 text-gray-500';
+        }, delay);
+    }
+
+    // Manipulação da seleção de turma
     document.getElementById('turma-select').addEventListener('change', (e) => {
         const turmaId = e.target.value;
+        const qrReader = document.getElementById('qr-reader');
+        const qrMessage = document.getElementById('qr-message');
+
+        // Limpar mensagem e parar scanner se nenhuma turma for selecionada
         if (!turmaId) {
-            if (html5QrcodeScanner) html5QrcodeScanner.stop();
-            document.getElementById('qr-reader').innerHTML = '';
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    html5QrcodeScanner = null;
+                    qrReader.innerHTML = '';
+                    qrMessage.textContent = '';
+                    qrMessage.className = 'mt-2 text-gray-500';
+                }).catch(err => console.error('Erro ao parar scanner:', err));
+            } else {
+                qrReader.innerHTML = '';
+                qrMessage.textContent = '';
+                qrMessage.className = 'mt-2 text-gray-500';
+            }
             return;
         }
 
-        document.getElementById('qr-reader').innerHTML = '<div id="reader" class="w-full max-w-md"></div>';
+        // Inicializar scanner
+        qrReader.innerHTML = '<div id="reader" class="w-full max-w-md"></div>';
         html5QrcodeScanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: 250 });
+
         html5QrcodeScanner.render(async (qrData) => {
+            // Ignorar leituras enquanto uma está sendo processada
+            if (isProcessing) {
+                return;
+            }
+
+            isProcessing = true;
+            qrMessage.textContent = 'Processando leitura...';
+            qrMessage.className = 'mt-2 text-gray-500';
+
             try {
+                // Pausar scanner para evitar leituras duplicadas
+                html5QrcodeScanner.pause();
+
                 const response = await fetch('/register_attendance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ qr_data: qrData, turma_id: turmaId })
                 });
                 const data = await response.json();
-                document.getElementById('qr-message').textContent = data.message || data.error;
-                document.getElementById('qr-message').className = response.ok ? 'text-green-500' : 'text-red-500';
+
+                qrMessage.textContent = data.message || data.error;
+                qrMessage.className = response.ok ? 'mt-2 text-green-500' : 'mt-2 text-red-500';
+
+                if (response.ok) {
+                    // Manter mensagem de sucesso por 15 segundos
+                    clearMessageAfterDelay(qrMessage, 15000);
+                    // Retomar scanner após 15 segundos
+                    setTimeout(() => {
+                        html5QrcodeScanner.resume();
+                        isProcessing = false;
+                    }, 15000);
+                } else {
+                    // Em caso de erro, permitir nova leitura imediatamente
+                    html5QrcodeScanner.resume();
+                    isProcessing = false;
+                }
             } catch (error) {
-                document.getElementById('qr-message').textContent = 'Erro ao registrar presença';
-                document.getElementById('qr-message').className = 'text-red-500';
+                qrMessage.textContent = 'Erro ao registrar presença';
+                qrMessage.className = 'mt-2 text-red-500';
+                html5QrcodeScanner.resume();
+                isProcessing = false;
             }
+        }, (error) => {
+            // Ignorar erros de leitura (ex.: QR code não detectado)
+            console.warn('Erro de leitura de QR code:', error);
         });
     });
 </script>
