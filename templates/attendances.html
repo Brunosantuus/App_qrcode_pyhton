@@ -5,7 +5,13 @@
 
 {% block content %}
 <div class="bg-white rounded-lg shadow p-4">
-    <h3 class="text-lg font-semibold mb-4">Lista de Presenças</h3>
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold">Lista de Presenças</h3>
+        <button id="export-excel-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-300 flex items-center space-x-2">
+            <i data-lucide="download" class="h-5 w-5"></i>
+            <span>Exportar para Excel</span>
+        </button>
+    </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
@@ -35,4 +41,31 @@
         </table>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<script>
+    document.getElementById('export-excel-btn').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/export_attendances_excel', {
+                method: 'GET',
+                headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                alert('Erro ao exportar: ' + (errorData.error || 'Erro desconhecido'));
+                return;
+            }
+
+            const blob = await response.blob();
+            saveAs(blob, 'presencas.xlsx');
+        } catch (error) {
+            console.error('Erro ao exportar para Excel:', error);
+            alert('Erro ao exportar para Excel. Tente novamente.');
+        }
+    });
+</script>
 {% endblock %}

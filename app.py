@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_from_directory
+from flask import Flask, request, send_file, jsonify, render_template, redirect, url_for, session, send_from_directory
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 import pytz
@@ -7,6 +7,8 @@ import logging
 import traceback
 from collections import Counter
 from bcrypt import hashpw, gensalt, checkpw
+from openpyxl import Workbook
+from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = "sua_chave_secreta_aqui"  # Substitua por uma chave segura
@@ -482,6 +484,92 @@ def get_polos():
         logger.error(error_msg)
         traceback.print_exc()
         return jsonify({"error": error_msg}), 500
+
+@app.route("/export_attendances_excel", methods=["GET"])
+def export_attendances_excel():
+    if "user" not in session:
+        logger.warning("Usuário não autenticado, redirecionando para login")
+        return jsonify({"error": "Não autorizado"}), 401
+
+    user = session["user"]
+    try:
+        query = supabase.table("presenca").select(
+            "*, alunos!presenca_id_aluno_fkey(nome, matricula), turmas!presenca_turma_id_fkey(nome, disciplinas!turmas_disciplina_id_fkey(nome, tipo), polos!turmas_polo_id_fkey(id))"
+        )
+
+        if user["cargo"] in ["diretor", "monitor"]:
+            response = supabase.table("funcionarios").select("unidade").eq("cpf", user["cpf"]).execute()
+            unidade = response.data[0]["unidade"] if response.data else None
+            if unidade:
+                query = query.eq("unidade", unidade)
+        elif user["cargo"] == "coordenador":
+            response = supabase.table("funcionarios").select("polo_id").eq("cpf", user["cpf"]).execute()
+            polo_id = response.data[0]["polo_id"] if response.data else None
+            if polo_id:
+                query = query.eq("turmas.polo_id", polo_id)
+
+        response = query.order("timestamp", desc=True).execute()
+        attendances = [
+            {
+                "student_name": row["alunos"]["nome"] if row.get("alunos") else "Desconhecido",
+                "matricula": row["alunos"]["matricula"] if row.get("alunos") else None,
+                "turma_nome": row["turmas"]["nome"] if row.get("turmas") else "Desconhecido",
+                "disciplina": row["turmas"]["disciplinas"]["nome"] if row.get("turmas", {}).get("disciplinas") else None,
+                "disciplina_tipo": row["turmas"]["disciplinas"]["tipo"] if row.get("turmas", {}).get("disciplinas") else None,
+                "date": row["data_escaneamento"]
+            }
+            for row in response.data
+        ]
+
+        # Criar workbook e worksheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Presenças"
+
+        # Adicionar cabeçalhos
+        headers = ["Aluno", "Matrícula", "Turma", "Disciplina", "Data"]
+        ws.append(headers)
+
+        # Adicionar dados
+        for attendance in attendances:
+            disciplina = f"{attendance['disciplina']} ({attendance['disciplina_tipo']})" if attendance['disciplina'] and attendance['disciplina_tipo'] else ""
+            ws.append([
+                attendance["student_name"],
+                attendance["matricula"] or "",
+                attendance["turma_nome"],
+                disciplina,
+                attendance["date"]
+            ])
+
+        # Ajustar largura das colunas
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = max_length + 2
+            ws.column_dimensions[column].width = adjusted_width
+
+        # Salvar em buffer
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        logger.info("Arquivo Excel de presenças gerado com sucesso")
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='presencas.xlsx'
+        )
+
+    except Exception as e:
+        logger.error(f"Erro ao exportar presenças para Excel: {str(e)}")
+        return jsonify({"error": f"Erro ao exportar presenças: {str(e)}"}), 500
 
 # Rota para logout
 @app.route("/logout")
